@@ -75,11 +75,10 @@ class TestDijkstra(unittest.TestCase):
 
         algorithm = DijkstraPathAlgorithm()
         path = algorithm.find_all_paths(self.G, self.a, self.e, 3)
-        paths = [y for x,y in path]
 
-        self.assertTrue([self.a, self.e] in paths)
-        self.assertTrue([self.a, self.b, self.c, self.e] in paths)
-        self.assertTrue([self.a, self.b, self.d, self.e] in paths)
+        self.assertTrue([self.a, self.e] in path[1])
+        self.assertTrue([self.a, self.b, self.c, self.e] in path[1])
+        self.assertTrue([self.a, self.b, self.d, self.e] in path[1])
 
 if __name__ == "__main__":
     unittest.main()

@@ -226,7 +226,7 @@ class DijkstraPathAlgorithm(DijkstraSettlementAlgorithm,
             self.reset(G, source, target)
             self.dijkstra(length)
         # return [p for l, p in self.dist[target]]
-        return [self.get_road_path(source, p[::-1]) for l, p in self.dist[target]]
+        return zip(*[self.get_road_path(source, p[::-1]) for l, p in self.dist[target]])
 
     @staticmethod
     def update_distance(x, v):
