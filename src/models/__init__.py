@@ -113,8 +113,8 @@ class Board():
         for vertex in self.vertices.values():
             for hexagon in vertex.h_refs:
                 if hexagon != None and hexagon.resource != "desert":
-                    vertex.roll.get(hexagon.value, []).append(hexagon.resource)
-                    vertex.resources[RESOURCE_ORDER[hexagon.resource]] += hexagon.value
+                    vertex.roll[hexagon.value] = vertex.roll.get(hexagon.value, []) + [hexagon.resource]
+                    vertex.resources[RESOURCE_ORDER[hexagon.resource]] += abs(7 - hexagon.value)
                 else:
                     vertex.resources[5] += 14
 

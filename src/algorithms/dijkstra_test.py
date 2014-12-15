@@ -68,23 +68,18 @@ class TestDijkstra(unittest.TestCase):
     # TODO: make better resource tests
 
     def test_all_paths(self):
-        self.a.v_refs = []
-        self.b.v_refs = []
-        self.c.v_refs = []
-        self.d.v_refs = []
-        self.e.v_refs = []
-
-        self.a.add_neighbors([self.e, self.b])
-        self.d.add_neighbors([self.c, self.e])
-        self.c.add_neighbors([self.d, self.e])
-        self.b.add_neighbors([self.c, self.d])
+        self.a.s_refs = {self.e:[], self.b:[]}
+        self.d.s_refs = {self.c:[], self.e:[]}
+        self.c.s_refs = {self.d:[], self.e:[]}
+        self.b.s_refs = {self.c:[], self.d:[]}
 
         algorithm = DijkstraPathAlgorithm()
         path = algorithm.find_all_paths(self.G, self.a, self.e, 3)
+        paths = [y for x,y in path]
 
-        self.assertTrue([self.a, self.e] in path)
-        self.assertTrue([self.a, self.b, self.c, self.e] in path)
-        self.assertTrue([self.a, self.b, self.d, self.e] in path)
+        self.assertTrue([self.a, self.e] in paths)
+        self.assertTrue([self.a, self.b, self.c, self.e] in paths)
+        self.assertTrue([self.a, self.b, self.d, self.e] in paths)
 
 if __name__ == "__main__":
     unittest.main()

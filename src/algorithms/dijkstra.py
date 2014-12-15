@@ -153,8 +153,14 @@ class DijkstraResourceSettlementAlgorithm(DijkstraSettlementAlgorithm,
     def __init__(self):
         DijkstraResourceAlgorithm.__init__(self)
 
-class DijkstraPathAlgorithm(DijkstraAlgorithm):
+class DijkstraPathAlgorithm(DijkstraSettlementAlgorithm,
+                            DijkstraAlgorithm):
     """Find all paths less than or equal to some length from a source to a target"""
+
+    @staticmethod
+    def get_refs(v):
+        """Get neighbor settlepython mment refs for vertex v."""
+        return v.s_refs
 
     def reset(self, G, source, target):
         self.G = G
@@ -219,8 +225,8 @@ class DijkstraPathAlgorithm(DijkstraAlgorithm):
         if source != self.source or G != self.G or reset:
             self.reset(G, source, target)
             self.dijkstra(length)
-        return [p for l, p in self.dist[target]]
-        # return [(p, [source] + reduce(lambda x, y: x + y, [v1.s_refs[v2] for v1,v2 in zip(p, p[1:])])) for l, p in self.dist[target]]
+        # return [p for l, p in self.dist[target]]
+        return [self.get_road_path(source, p[::-1]) for l, p in self.dist[target]]
 
     @staticmethod
     def update_distance(x, v):

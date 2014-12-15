@@ -54,7 +54,8 @@ class Controller:
             if self.end_circle != None:
                 self.end_circle.undraw()
         elif self.clickedInBounds(clicked, self.buttons[2]):
-            self.verifyPath()
+            if self.start and self.end:
+                self.verifyPath()
         else: # Otherwise, selecting a node
             if self.action == "start":
                 self.clearPath()
@@ -78,32 +79,42 @@ class Controller:
         # Check to see if we need to redraw the path
         if self.changed and self.start and self.end:
             path, s_path = self.algorithm.find_path(self.board.vertices.values(), self.start, self.end)
-
             self.settleCircles = [self.display._drawCircle(v.pos, 20, "red") for v in s_path]
             self.pathLines = self.display.drawPath([v.pos for v in path])
+            self.num_settlements = len(s_path)
             self.display.update()
 
             changed = False
 
     def verifyPath(self):
-        paths = self.verification.find_all_paths(self.board.vertices.values(), self.start, self.end, len(self.pathLines) + 1)
-        # self.verifyPaths = [(self.display.drawPath(*[v.pos for v in path]), [self.display._drawCircle(v.pos, 20, "red") for v in s_path]) for path, s_path in paths]
-        self.verifyPaths = [self.display.drawPath([v.pos for v in path], color = "gray") for path in paths]
-        results = self.simulatePaths(paths)
+        for edge in self.pathLines + self.settleCircles:
+            edge.undraw()
+
+        paths = self.verification.find_all_paths(self.board.vertices.values(), self.start, self.end, self.num_settlements - 1)
+        self.verifyPaths = [(self.display.drawPath([v.pos for v in path], color = "gray"), [self.display._drawCircle(v.pos, 20, "gray") for v in s_path]) for path, s_path in paths]
+        results = self.simulatePaths([y for x,y in paths])
         best = results.index(max(results))
-        self.bestPath = self.display.drawPath([v.pos for v in paths[best]], color = "green")
+        self.bestPath = self.display.drawPath([v.pos for v in paths[best][0]], color = "green")
+        self.bestSettle = [self.display._drawCircle(v.pos, 25, "green") for v in paths[best][1]]
+
+        for line in self.pathLines:
+            line.draw(self.display.window)
+        for circle in self.settleCircles:
+            circle.draw(self.display.window)
 
     def simulatePaths(self, paths):
         turns = [0] * len(paths)
         resources = [[0,0,0,0,0] for _ in xrange(len(paths))]
-
-        for _ in xrange(20):
+        for _ in xrange(10000):
             roll = randint(1, 6) + randint(1, 6)
             for i, path in enumerate(paths):
-                for res in [v.roll[roll] for v in path if roll in v.roll]:
-                    resources[i][RESOURCE_ORDER[res]] += 1
+                for v in path:
+                    if roll != 7 and roll in v.roll:
+                        s_res = v.roll[roll] 
+                        for res in s_res:
+                            resources[i][RESOURCE_ORDER[res]] += 1
+        return [([x * x for x in res]) for res in resources]
 
-        return [sum(res) for res in resources]
 
     def clearPath(self):
         self.start = None
@@ -117,42 +128,6 @@ class Controller:
 
     def clickedInBounds(self, point, bounds):
         return bounds[0] < point.getX() < bounds[2] and bounds[1] < point.getY() < bounds[3]
-
-class Path: # NOT BEING USED
-    """
-    Path for saving paths and other meta-data to simulate building the path
-    """
-    def __init__(self, path, spath):
-        self.resources = {"sheep": 0, "wood": 0, "brick": 0, "stone": 0, "wheat": 0}
-        self.turns = 0
-        self.path = path
-        self.spath = spath[1:-1]
-        self.settlements = [path[0], path[-1]]
-        self.s_price = ("brick", 1), ("wood", 1), ("sheep", 1), ("wheat", 1)
-        self.r_price = ("brick", 1), ("wood", 1)
-
-    def evalRoll(self, diceRoll):
-        for settle in self.settlements:
-            for h in settle.h_refs:
-                self.resources[h.resource] += 1
-        if self.path[0] == self.spath[0] and self.canBuy(self.s_price):
-            pass
-
-        if self.canBuy(self.s_price):
-            pass
-
-    def canBuy(self, reqs):
-        resources = deepcopy(self.resources)
-        trade = 0
-        for req, num in reqs:
-            if resources[req] > num:
-                resources[req] -= num
-            else:
-                trade += 1
-
-        return sum([x >= 4 for x in resources.values()]) >= trade
-
-
 
 
 def GameLoop():
