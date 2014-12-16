@@ -2,21 +2,23 @@ from models import Board, Hexagon, Vertex, RESOURCE_ORDER
 from views import Display
 from evaluators import EvaluatorA as EV
 from algorithms import dijkstra
-from random import randint
+from random import randint, choice
 from copy import deepcopy
 import sys
 
 
 class Controller:
-    def __init__(self, display, board, algorithm, verification):
+    def __init__(self, display, board, algorithm, verification, MAGIC = 1):
         self.display = display
         self.board = board
         self.algorithm = algorithm()
         self.verification = verification()
 
+        self.MAGIC = MAGIC
         self.initMembers()
-
-        self.display.drawBoard(self.board)
+        
+        if display:
+            self.display.drawBoard(self.board)
 
     def initMembers(self):
         # Click action
@@ -50,7 +52,7 @@ class Controller:
         elif self.clickedInBounds(clicked, self.buttons[2]):
             # Verification Button
             if self.start and self.end:
-                self.verifyPath()
+                self.drawVerification()
         else: # Otherwise, selecting a node
             if self.action == "start":
                 self.start = self.board.get_vertex_from_position(self.display._convertToNormal((clicked.getX(), clicked.getY())))
@@ -68,37 +70,40 @@ class Controller:
 
         # Check to see if we need to redraw the path
         if self.changed and self.start and self.end:
-            path, s_path = self.algorithm.find_path(self.board.vertices.values(), self.start, self.end)
-            
+            path, s_path = self.findBestPath()
             self.drawn["chosen settlements"] = [self.display._drawCircle(v.pos, 20, "red") for v in s_path]
             self.drawn["chosen path"] = self.display.drawPath([v.pos for v in path])
-            
-            self.num_settlements = len(s_path)
+        
             self.changed = False
 
         self.display.update()
 
-    def verifyPath(self):
+    def findBestPath(self):
+        path, s_path = self.algorithm.find_path(self.board.vertices.values(), self.start, self.end)
+        self.chosenPath = s_path
+        self.num_settlements = len(s_path)
+        return path, s_path
+
+    def drawVerification(self):
         self.clear("chosen path")
         self.clear("chosen settlements")
 
-        paths = self.verification.find_all_paths(self.board.vertices.values(), self.start, self.end, self.num_settlements - 1)
+        best, paths = self.simulatePaths()
         # Draw Verification Paths
         self.drawn["verification paths"] = []
         for path in paths[0]:
             self.drawn["verification paths"].extend(self.display.drawPath([v.pos for v in path], color = "gray") )
         self.drawn["verification settlements"] = [self.display._drawCircle(v.pos, 20, "gray") for path in paths[1] for v in path]
         
-        results = self.simulatePaths(paths[1])
-        best = results.index(max(results))
-
         self.drawn["best paths"] = self.display.drawPath([v.pos for v in paths[0][best]], color = "green")
         self.drawn["best settlements"] = [self.display._drawCircle(v.pos, 25, "green") for v in paths[1][best]]
 
         self.redraw("chosen path")
         self.redraw("chosen settlements")
 
-    def simulatePaths(self, paths):
+    def simulatePaths(self):
+        draw, paths = self.verification.find_all_paths(self.board.vertices.values(), self.start, self.end, self.num_settlements - 1)
+        chosen = paths.index(self.chosenPath)
         resources = [[0,0,0,0,0] for _ in xrange(len(paths))]
         for _ in xrange(10000):
             roll = randint(1, 6) + randint(1, 6)
@@ -106,9 +111,20 @@ class Controller:
             for i, s_res in [(i, v.roll.get(roll, [])) for i, path in enumerate(paths) for v in path]:
                 for res in s_res:
                     resources[i][RESOURCE_ORDER[res]] += 1
-            
-        return [([x * x for x in res]) for res in resources]
-    
+        
+        # means = [float(sum(res))/len(res) for res in resources]
+        # variance = [sum([(means[i] - x) ** 2 for x in res])**.5 for i,res in enumerate(resources)]
+
+        # results = [sum(res) + variance[i] * self.MAGIC for i, res in enumerate(resources)]
+        results = [sum([x*x for x in res]) * self.MAGIC * sum([1 for x in res if x != 0])/5 for res in resources]
+
+        # results = [sum(res)/(variance[i]**.5) for i,res in enumerate(resources)]
+        # medians = [sorted(res)[2] for res in resources]
+        # results = [sum(res)/(sum(res)/abs(float(len(res)) - medians[i])) for i,res in enumerate(resources)]
+        best = results.index(max(results))
+        
+        return best, (draw, paths)
+
     def drawButtons(self, *args):
         self.buttons = []
         for arg in args:
@@ -147,6 +163,7 @@ def GameLoop():
     START_BUTTON = (20, 25, 120, 70, "Starting Node")
     END_BUTTON = (20, 100, 120, 150, "Ending Node")
     VERIFY_BUTTON = (20, 175, 120, 230, "Verify Paths")
+    # EXIT_BUTTON = (20, 250, 120, 310, "Exit")
 
     # Create the board
     board = Board(2, 3)
@@ -161,15 +178,67 @@ def GameLoop():
                             dijkstra.DijkstraResourceSettlementAlgorithm, 
                             dijkstra.DijkstraPathAlgorithm)
 
-    controller.drawButtons(START_BUTTON, END_BUTTON, VERIFY_BUTTON)
+    controller.drawButtons(START_BUTTON, END_BUTTON, VERIFY_BUTTON)#, EXIT_BUTTON)
 
     while True:
+        # try:
         controller.handleClick()
         display.update()
+        # except: 
+        #     pass
 
     display.close()
+
+def AutomatedLoop():
+    board = Board(2,3)
+    EV().evaluateBoard(board)
+
+    controller = Controller(None,
+                            board, 
+                            dijkstra.DijkstraResourceSettlementAlgorithm, 
+                            dijkstra.DijkstraPathAlgorithm)
+
+    adding = True
+    prev = 1.0
+    controller.MAGIC = .375
+    coeff_dict = {}
+
+    while prev > .05:
+        results = []
+        
+        for _ in xrange(20):
+            controller.start = choice(board.vertices.values())
+            controller.end = choice(board.vertices.values())
+            try:
+                controller.findBestPath()
+
+                best, (_, paths) = controller.simulatePaths()
+
+                evaled = set(paths[best])
+                chosen = set(controller.chosenPath)
+
+                results.append(len(evaled.symmetric_difference(chosen))/float(len(evaled)))
+            except:
+                print controller.start, controller.end
+
+        new = sum(results)/float(len(results))
+        print "COEFF:", controller.MAGIC, " error:", new
+        if new > prev + .05:
+            adding ^= True
+        
+        controller.MAGIC *= 1 + (adding * 2 - 1) * .5
+        if controller.MAGIC in coeff_dict:
+            print "Looped back around"
+            # break
+        else:
+            coeff_dict[controller.MAGIC] = new
+
+        prev = new
+
 
 if __name__ == "__main__":
     # DrawBoardTest()
 
     GameLoop()
+
+    # AutomatedLoop()

@@ -92,7 +92,8 @@ class DijkstraResourceAlgorithm(DijkstraAlgorithm):
 
     @staticmethod
     def compare(x, y):
-        return sum(x) <= sum(y)
+        return sum([i ** 2 for i in x]) <= sum([i**2 for i in y])
+        # return sum(x) <= sum(y)
 
     @staticmethod
     def update_distance(x, v):
@@ -103,7 +104,7 @@ class DijkstraResourceAlgorithm(DijkstraAlgorithm):
         with two of the same resources will create a larger number than a vertex
         with all different resources even if their values sum to the same thing.
         """
-        return [res_val + v.resources[i]**2 for i, res_val in enumerate(x)]
+        return [res_val + v.resources[i] for i, res_val in enumerate(x)]
 
 
 class DijkstraSettlementAlgorithm(DijkstraAlgorithm):
